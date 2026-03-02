@@ -13,6 +13,12 @@ const {
 
 const { GoogleSpreadsheet } = require("google-spreadsheet");
 
+/* ===============================
+CONFIG
+================================ */
+
+const COMMISSION_PAR_UNITE = 55;
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -22,13 +28,7 @@ const client = new Client({
 });
 
 /* ===============================
-   CONFIG
-================================ */
-
-const COMMISSION_PAR_UNITE = 55;
-
-/* ===============================
-   READY
+READY
 ================================ */
 
 client.once("ready", () => {
@@ -36,7 +36,7 @@ client.once("ready", () => {
 });
 
 /* ===============================
-   SETUP
+SETUP COMMAND
 ================================ */
 
 client.on("messageCreate", async message => {
@@ -60,7 +60,7 @@ client.on("messageCreate", async message => {
 });
 
 /* ===============================
-   INTERACTIONS
+INTERACTIONS
 ================================ */
 
 client.on("interactionCreate", async interaction => {
@@ -75,7 +75,7 @@ client.on("interactionCreate", async interaction => {
 
             const produit = new TextInputBuilder()
                 .setCustomId("produit")
-                .setLabel("Produit vendu")
+                .setLabel("Produit vendu (log uniquement)")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
@@ -85,7 +85,7 @@ client.on("interactionCreate", async interaction => {
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
-            const montantTotal = new TextInputBuilder()
+            const total = new TextInputBuilder()
                 .setCustomId("total")
                 .setLabel("Montant TOTAL encaissé ($)")
                 .setStyle(TextInputStyle.Short)
@@ -94,12 +94,16 @@ client.on("interactionCreate", async interaction => {
             modal.addComponents(
                 new ActionRowBuilder().addComponents(produit),
                 new ActionRowBuilder().addComponents(quantite),
-                new ActionRowBuilder().addComponents(montantTotal)
+                new ActionRowBuilder().addComponents(total)
             );
 
             await interaction.showModal(modal);
         }
     }
+
+    /* ===============================
+    MODAL SUBMIT
+    ================================= */
 
     if (interaction.isModalSubmit()) {
 
@@ -109,12 +113,18 @@ client.on("interactionCreate", async interaction => {
 
                 const vendeur = interaction.member.nickname || interaction.user.username;
                 const produit = interaction.fields.getTextInputValue("produit");
-                const quantite = parseInt(interaction.fields.getTextInputValue("quantite"));
-                const totalVenteAjout = parseInt(interaction.fields.getTextInputValue("total"));
 
-                if (isNaN(quantite) || quantite <= 0 || isNaN(totalVenteAjout) || totalVenteAjout <= 0) {
+                const quantite = parseInt(
+                    interaction.fields.getTextInputValue("quantite")
+                );
+
+                const totalVenteAjout = parseInt(
+                    interaction.fields.getTextInputValue("total")
+                );
+
+                if (isNaN(quantite) || isNaN(totalVenteAjout)) {
                     return interaction.reply({
-                        content: "❌ Quantité ou montant invalide.",
+                        content: "❌ Valeurs invalides.",
                         ephemeral: true
                     });
                 }
@@ -132,19 +142,34 @@ client.on("interactionCreate", async interaction => {
                 const sheet = doc.sheetsByTitle["Ventes"];
 
                 await sheet.loadHeaderRow();
+
                 const rows = await sheet.getRows();
 
-                const vendeurRow = rows.find(row => row.get("Vendeur") === vendeur);
+                const vendeurRow = rows.find(
+                    row => row.get("Vendeur") === vendeur
+                );
+
+                const ancienTotal = vendeurRow
+                    ? Number(vendeurRow.get("Total Vente").replace(" $", ""))
+                    : 0;
+
+                const ancienneQuantite = vendeurRow
+                    ? Number(vendeurRow.get("Quantité"))
+                    : 0;
+
+                const anciennePaye = vendeurRow
+                    ? Number(vendeurRow.get("Paye").replace(" $", ""))
+                    : 0;
+
+                const nouvelleQuantite = ancienneQuantite + quantite;
+                const nouveauTotal = ancienTotal + totalVenteAjout;
+                const nouvellePaye = anciennePaye + payeAjout;
 
                 if (vendeurRow) {
 
-                    const nouvelleQuantite = Number(vendeurRow.get("Quantité")) + quantite;
-                    const nouveauTotal = Number(vendeurRow.get("Total Vente")) + totalVenteAjout;
-                    const nouvellePaye = Number(vendeurRow.get("Paye")) + payeAjout;
-
                     vendeurRow.set("Quantité", nouvelleQuantite);
-                    vendeurRow.set("Total Vente", nouveauTotal);
-                    vendeurRow.set("Paye", nouvellePaye);
+                    vendeurRow.set("Total Vente", nouveauTotal + " $");
+                    vendeurRow.set("Paye", nouvellePaye + " $");
 
                     await vendeurRow.save();
 
@@ -153,8 +178,8 @@ client.on("interactionCreate", async interaction => {
                     await sheet.addRow({
                         Vendeur: vendeur,
                         Quantité: quantite,
-                        "Total Vente": totalVenteAjout,
-                        Paye: payeAjout
+                        "Total Vente": totalVenteAjout + " $",
+                        Paye: payeAjout + " $"
                     });
                 }
 
@@ -163,14 +188,14 @@ client.on("interactionCreate", async interaction => {
                         `✅ Vente enregistrée.\n\n` +
                         `🧪 Produit : ${produit}\n` +
                         `📦 Quantité : ${quantite}\n` +
-                        `💰 Total gang : ${totalVenteAjout}$\n` +
-                        `💵 Commission ajoutée : ${payeAjout}$`,
+                        `💰 Total gang : ${totalVenteAjout} $\n` +
+                        `💵 Commission ajoutée : ${payeAjout} $`,
                     ephemeral: true
                 });
 
             } catch (err) {
 
-                console.log("ERREUR SHEETS :", err);
+                console.log("ERREUR BOT :", err);
 
                 await interaction.reply({
                     content: "❌ Erreur lors de l'enregistrement.",
