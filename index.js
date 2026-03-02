@@ -52,8 +52,20 @@ client.on("messageCreate", async message => {
 
         const row = new ActionRowBuilder().addComponents(button);
 
+        const embed = {
+            color: 0x0099ff,
+            title: "💊 Déclaration des ventes",
+            description: "Clique sur le bouton ci-dessous pour déclarer une vente 💼",
+            image: {
+                url: "https://i.imgur.com/OYLdO9J.gif"
+            },
+            footer: {
+                text: "Système de déclaration automatique"
+            }
+        };
+
         await message.channel.send({
-            content: "💊 **Déclaration officielle des ventes**",
+            embeds: [embed],
             components: [row]
         });
     }
