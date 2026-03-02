@@ -23,6 +23,18 @@ client.once('ready', async () => {
 client.on('messageCreate', async message => {
   if (message.content === "!setup") {
 
+    const button = new ButtonBuilder()
+      .setCustomId('declare_vente')
+      .setLabel('📦 Déclarer une vente')
+      .setStyle(ButtonStyle.Success);
+
+    const row = new ActionRowBuilder().addComponents(button);
+
+    await message.channel.send({
+      content: "💊 **Déclaration officielle des ventes**",
+      components: [row]
+    });
+
 client.on('interactionCreate', async interaction => {
 
   // === BOUTON CLIQUÉ ===
