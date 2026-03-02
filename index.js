@@ -81,20 +81,20 @@ client.on("interactionCreate", async interaction => {
 
             const quantite = new TextInputBuilder()
                 .setCustomId("quantite")
-                .setLabel("Quantité")
+                .setLabel("Quantité vendue")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
-            const prixVente = new TextInputBuilder()
-                .setCustomId("prix")
-                .setLabel("Prix de vente (par unité)")
+            const montantTotal = new TextInputBuilder()
+                .setCustomId("total")
+                .setLabel("Montant TOTAL encaissé ($)")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
             modal.addComponents(
                 new ActionRowBuilder().addComponents(produit),
                 new ActionRowBuilder().addComponents(quantite),
-                new ActionRowBuilder().addComponents(prixVente)
+                new ActionRowBuilder().addComponents(montantTotal)
             );
 
             await interaction.showModal(modal);
@@ -109,16 +109,15 @@ client.on("interactionCreate", async interaction => {
 
                 const produit = interaction.fields.getTextInputValue("produit");
                 const quantite = parseInt(interaction.fields.getTextInputValue("quantite"));
-                const prixUnitaire = parseInt(interaction.fields.getTextInputValue("prix"));
+                const totalVente = parseInt(interaction.fields.getTextInputValue("total"));
 
-                if (isNaN(quantite) || quantite <= 0 || isNaN(prixUnitaire) || prixUnitaire <= 0) {
+                if (isNaN(quantite) || quantite <= 0 || isNaN(totalVente) || totalVente <= 0) {
                     return interaction.reply({
-                        content: "❌ Quantité ou prix invalide.",
+                        content: "❌ Quantité ou montant invalide.",
                         ephemeral: true
                     });
                 }
 
-                const totalVente = quantite * prixUnitaire;
                 const payeVendeur = quantite * COMMISSION_PAR_UNITE;
 
                 const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
@@ -136,7 +135,6 @@ client.on("interactionCreate", async interaction => {
                     Vendeur: interaction.member.nickname || interaction.user.username,
                     Produit: produit,
                     Quantité: quantite,
-                    "Prix Vente": prixUnitaire,
                     "Total Vente": totalVente,
                     "Paye": payeVendeur
                 });
@@ -144,7 +142,7 @@ client.on("interactionCreate", async interaction => {
                 await interaction.reply({
                     content:
                         `✅ Vente enregistrée.\n\n` +
-                        `💰 Total vente : ${totalVente}$\n` +
+                        `💰 Total gang : ${totalVente}$\n` +
                         `💵 Ta commission : ${payeVendeur}$`,
                     ephemeral: true
                 });
