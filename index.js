@@ -75,7 +75,7 @@ client.on("interactionCreate", async interaction => {
 
             const produit = new TextInputBuilder()
                 .setCustomId("produit")
-                .setLabel("Produit")
+                .setLabel("Produit vendu")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
@@ -107,18 +107,19 @@ client.on("interactionCreate", async interaction => {
 
             try {
 
+                const vendeur = interaction.member.nickname || interaction.user.username;
                 const produit = interaction.fields.getTextInputValue("produit");
                 const quantite = parseInt(interaction.fields.getTextInputValue("quantite"));
-                const totalVente = parseInt(interaction.fields.getTextInputValue("total"));
+                const totalVenteAjout = parseInt(interaction.fields.getTextInputValue("total"));
 
-                if (isNaN(quantite) || quantite <= 0 || isNaN(totalVente) || totalVente <= 0) {
+                if (isNaN(quantite) || quantite <= 0 || isNaN(totalVenteAjout) || totalVenteAjout <= 0) {
                     return interaction.reply({
                         content: "❌ Quantité ou montant invalide.",
                         ephemeral: true
                     });
                 }
 
-                const payeVendeur = quantite * COMMISSION_PAR_UNITE;
+                const payeAjout = quantite * COMMISSION_PAR_UNITE;
 
                 const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
@@ -130,20 +131,40 @@ client.on("interactionCreate", async interaction => {
 
                 const sheet = doc.sheetsByTitle["Ventes"];
 
-                await sheet.addRow({
-                    Date: new Date().toLocaleDateString(),
-                    Vendeur: interaction.member.nickname || interaction.user.username,
-                    Produit: produit,
-                    Quantité: quantite,
-                    "Total Vente": totalVente,
-                    "Paye": payeVendeur
-                });
+                await sheet.loadHeaderRow();
+                const rows = await sheet.getRows();
+
+                const vendeurRow = rows.find(row => row.get("Vendeur") === vendeur);
+
+                if (vendeurRow) {
+
+                    const nouvelleQuantite = Number(vendeurRow.get("Quantité")) + quantite;
+                    const nouveauTotal = Number(vendeurRow.get("Total Vente")) + totalVenteAjout;
+                    const nouvellePaye = Number(vendeurRow.get("Paye")) + payeAjout;
+
+                    vendeurRow.set("Quantité", nouvelleQuantite);
+                    vendeurRow.set("Total Vente", nouveauTotal);
+                    vendeurRow.set("Paye", nouvellePaye);
+
+                    await vendeurRow.save();
+
+                } else {
+
+                    await sheet.addRow({
+                        Vendeur: vendeur,
+                        Quantité: quantite,
+                        "Total Vente": totalVenteAjout,
+                        Paye: payeAjout
+                    });
+                }
 
                 await interaction.reply({
                     content:
                         `✅ Vente enregistrée.\n\n` +
-                        `💰 Total gang : ${totalVente}$\n` +
-                        `💵 Ta commission : ${payeVendeur}$`,
+                        `🧪 Produit : ${produit}\n` +
+                        `📦 Quantité : ${quantite}\n` +
+                        `💰 Total gang : ${totalVenteAjout}$\n` +
+                        `💵 Commission ajoutée : ${payeAjout}$`,
                     ephemeral: true
                 });
 
