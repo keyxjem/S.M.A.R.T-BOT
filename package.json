@@ -1,0 +1,10 @@
+{
+  "name": "S.M.A.R.T",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "discord.js": "^14.0.0",
+    "google-spreadsheet": "^3.3.0",
+    "dotenv": "^16.0.0"
+  }
+}
