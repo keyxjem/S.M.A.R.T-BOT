@@ -77,7 +77,7 @@ client.on("interactionCreate", async interaction => {
 
             const prix = new TextInputBuilder()
                 .setCustomId("prix")
-                .setLabel("Prix unitaire")
+                .setLabel("Prix")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
