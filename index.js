@@ -75,7 +75,7 @@ client.on("interactionCreate", async interaction => {
 
             const produit = new TextInputBuilder()
                 .setCustomId("produit")
-                .setLabel("Produit (log uniquement)")
+                .setLabel("Produit (log Discord uniquement)")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
@@ -101,115 +101,100 @@ client.on("interactionCreate", async interaction => {
         }
     }
 
-    /* ===============================
-    MODAL SUBMIT
-    ================================= */
+    if (interaction.isModalSubmit() && interaction.customId === "vente_modal") {
 
-    if (interaction.isModalSubmit()) {
+        try {
 
-        if (interaction.customId === "vente_modal") {
+            await interaction.deferReply({ ephemeral: true });
 
-            try {
+            const vendeur =
+                interaction.member.nickname ||
+                interaction.user.username;
 
-                const vendeur =
-                    interaction.member.nickname ||
-                    interaction.user.username;
+            const produit =
+                interaction.fields.getTextInputValue("produit");
 
-                const produit =
-                    interaction.fields.getTextInputValue("produit");
+            const quantite = parseInt(
+                interaction.fields.getTextInputValue("quantite")
+            );
 
-                const quantite = parseInt(
-                    interaction.fields.getTextInputValue("quantite")
-                );
+            const totalAjout = parseInt(
+                interaction.fields.getTextInputValue("total")
+            );
 
-                const totalAjout = parseInt(
-                    interaction.fields.getTextInputValue("total")
-                );
-
-                if (!quantite || !totalAjout) {
-                    return interaction.reply({
-                        content: "❌ Données invalides.",
-                        ephemeral: true
-                    });
-                }
-
-                const payeAjout = quantite * COMMISSION_PAR_UNITE;
-
-                const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-
-                await doc.useServiceAccountAuth(
-                    JSON.parse(process.env.GOOGLE_CREDS)
-                );
-
-                await doc.loadInfo();
-
-                const sheet = doc.sheetsByTitle["Ventes"];
-
-                await sheet.loadHeaderRow();
-
-                const rows = await sheet.getRows();
-
-                const vendeurRow = rows.find(
-                    row => row.Vendeur === vendeur
-                );
-
-                const ancienTotal = vendeurRow
-                    ? Number(
-                        (vendeurRow["Total Vente"] || "0").replace(" $", "")
-                    )
-                    : 0;
-
-                const ancienneQuantite = vendeurRow
-                    ? Number(vendeurRow["Quantité"] || 0)
-                    : 0;
-
-                const anciennePaye = vendeurRow
-                    ? Number(
-                        (vendeurRow["Paye"] || "0").replace(" $", "")
-                    )
-                    : 0;
-
-                const nouvelleQuantite = ancienneQuantite + quantite;
-                const nouveauTotal = ancienTotal + totalAjout;
-                const nouvellePaye = anciennePaye + payeAjout;
-
-                if (vendeurRow) {
-
-                    vendeurRow["Quantité"] = nouvelleQuantite;
-                    vendeurRow["Total Vente"] = nouveauTotal + " $";
-                    vendeurRow["Paye"] = nouvellePaye + " $";
-
-                    await vendeurRow.save();
-
-                } else {
-
-                    await sheet.addRow({
-                        Vendeur: vendeur,
-                        Quantité: quantite,
-                        "Total Vente": totalAjout + " $",
-                        Paye: payeAjout + " $"
-                    });
-                }
-
-                await interaction.reply({
-                    content:
-                        `✅ Vente enregistrée.\n\n` +
-                        `🧪 Produit : ${produit}\n` +
-                        `📦 Quantité : ${quantite}\n` +
-                        `💰 Total gang : ${totalAjout} $\n` +
-                        `💵 Commission ajoutée : ${payeAjout} $`,
-                    ephemeral: true
-                });
-
-            } catch (err) {
-
-                console.log("ERREUR BOT :", err);
-
-                await interaction.reply({
-                    content: "❌ Erreur lors de l'enregistrement.",
-                    ephemeral: true
+            if (!quantite || !totalAjout) {
+                return interaction.editReply({
+                    content: "❌ Données invalides."
                 });
             }
+
+            const payeAjout = quantite * COMMISSION_PAR_UNITE;
+
+            const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
+
+            await doc.useServiceAccountAuth(
+                JSON.parse(process.env.GOOGLE_CREDS)
+            );
+
+            await doc.loadInfo();
+
+            const sheet = doc.sheetsByTitle["Ventes"];
+
+            await sheet.loadHeaderRow();
+
+            const rows = await sheet.getRows();
+
+            const vendeurRow = rows.find(
+                row => row.Vendeur === vendeur
+            );
+
+            const ancienTotal = vendeurRow
+                ? Number((vendeurRow["Total Vente"] || "0").replace(" $", ""))
+                : 0;
+
+            const ancienneQuantite = vendeurRow
+                ? Number(vendeurRow["Quantité"] || 0)
+                : 0;
+
+            const anciennePaye = vendeurRow
+                ? Number((vendeurRow["Paye"] || "0").replace(" $", ""))
+                : 0;
+
+            const nouvelleQuantite = ancienneQuantite + quantite;
+            const nouveauTotal = ancienTotal + totalAjout;
+            const nouvellePaye = anciennePaye + payeAjout;
+
+            if (vendeurRow) {
+
+                vendeurRow["Quantité"] = nouvelleQuantite;
+                vendeurRow["Total Vente"] = nouveauTotal + " $";
+                vendeurRow["Paye"] = nouvellePaye + " $";
+
+                await vendeurRow.save();
+
+            } else {
+
+                await sheet.addRow({
+                    Vendeur: vendeur,
+                    Quantité: quantite,
+                    "Total Vente": totalAjout + " $",
+                    Paye: payeAjout + " $"
+                });
+            }
+
+            await interaction.editReply({
+                content: "✅ Vente enregistrée avec succès."
+            });
+
+        } catch (err) {
+
+            console.log("ERREUR BOT :", err);
+
+            try {
+                await interaction.editReply({
+                    content: "❌ Une erreur s'est produite."
+                });
+            } catch {}
         }
     }
 });
