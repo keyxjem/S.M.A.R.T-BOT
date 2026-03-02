@@ -12,7 +12,9 @@ const {
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 require('dotenv').config();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent] });
 
 client.once('ready', async () => {
   console.log('Bot prêt 🔥');
