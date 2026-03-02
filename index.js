@@ -14,7 +14,7 @@ const {
 const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 /* ===============================
-CONFIG
+CONFIGURATION
 ================================ */
 
 const COMMISSION_PAR_UNITE = 55;
@@ -75,7 +75,7 @@ client.on("interactionCreate", async interaction => {
 
             const produit = new TextInputBuilder()
                 .setCustomId("produit")
-                .setLabel("Produit vendu (log uniquement)")
+                .setLabel("Produit (log uniquement)")
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
@@ -111,20 +111,24 @@ client.on("interactionCreate", async interaction => {
 
             try {
 
-                const vendeur = interaction.member.nickname || interaction.user.username;
-                const produit = interaction.fields.getTextInputValue("produit");
+                const vendeur =
+                    interaction.member.nickname ||
+                    interaction.user.username;
+
+                const produit =
+                    interaction.fields.getTextInputValue("produit");
 
                 const quantite = parseInt(
                     interaction.fields.getTextInputValue("quantite")
                 );
 
-                const totalVenteAjout = parseInt(
+                const totalAjout = parseInt(
                     interaction.fields.getTextInputValue("total")
                 );
 
-                if (isNaN(quantite) || isNaN(totalVenteAjout)) {
+                if (!quantite || !totalAjout) {
                     return interaction.reply({
-                        content: "❌ Valeurs invalides.",
+                        content: "❌ Données invalides.",
                         ephemeral: true
                     });
                 }
@@ -146,30 +150,34 @@ client.on("interactionCreate", async interaction => {
                 const rows = await sheet.getRows();
 
                 const vendeurRow = rows.find(
-                    row => row.get("Vendeur") === vendeur
+                    row => row.Vendeur === vendeur
                 );
 
                 const ancienTotal = vendeurRow
-                    ? Number(vendeurRow.get("Total Vente").replace(" $", ""))
+                    ? Number(
+                        (vendeurRow["Total Vente"] || "0").replace(" $", "")
+                    )
                     : 0;
 
                 const ancienneQuantite = vendeurRow
-                    ? Number(vendeurRow.get("Quantité"))
+                    ? Number(vendeurRow["Quantité"] || 0)
                     : 0;
 
                 const anciennePaye = vendeurRow
-                    ? Number(vendeurRow.get("Paye").replace(" $", ""))
+                    ? Number(
+                        (vendeurRow["Paye"] || "0").replace(" $", "")
+                    )
                     : 0;
 
                 const nouvelleQuantite = ancienneQuantite + quantite;
-                const nouveauTotal = ancienTotal + totalVenteAjout;
+                const nouveauTotal = ancienTotal + totalAjout;
                 const nouvellePaye = anciennePaye + payeAjout;
 
                 if (vendeurRow) {
 
-                    vendeurRow.set("Quantité", nouvelleQuantite);
-                    vendeurRow.set("Total Vente", nouveauTotal + " $");
-                    vendeurRow.set("Paye", nouvellePaye + " $");
+                    vendeurRow["Quantité"] = nouvelleQuantite;
+                    vendeurRow["Total Vente"] = nouveauTotal + " $";
+                    vendeurRow["Paye"] = nouvellePaye + " $";
 
                     await vendeurRow.save();
 
@@ -178,7 +186,7 @@ client.on("interactionCreate", async interaction => {
                     await sheet.addRow({
                         Vendeur: vendeur,
                         Quantité: quantite,
-                        "Total Vente": totalVenteAjout + " $",
+                        "Total Vente": totalAjout + " $",
                         Paye: payeAjout + " $"
                     });
                 }
@@ -188,7 +196,7 @@ client.on("interactionCreate", async interaction => {
                         `✅ Vente enregistrée.\n\n` +
                         `🧪 Produit : ${produit}\n` +
                         `📦 Quantité : ${quantite}\n` +
-                        `💰 Total gang : ${totalVenteAjout} $\n` +
+                        `💰 Total gang : ${totalAjout} $\n` +
                         `💵 Commission ajoutée : ${payeAjout} $`,
                     ephemeral: true
                 });
