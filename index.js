@@ -1,109 +1,144 @@
-const { 
-  Client, 
-  GatewayIntentBits, 
-  ActionRowBuilder, 
-  ButtonBuilder, 
-  ButtonStyle, 
-  ModalBuilder, 
-  TextInputBuilder, 
-  TextInputStyle 
-} = require('discord.js');
+require("dotenv").config();
 
-const { GoogleSpreadsheet } = require('google-spreadsheet');
-require('dotenv').config();
+const {
+    Client,
+    GatewayIntentBits,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle
+} = require("discord.js");
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent] });
+const { GoogleSpreadsheet } = require("google-spreadsheet");
 
-client.once('ready', async () => {
-  console.log('Bot prêt 🔥');
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent
+    ]
 });
 
-client.on('messageCreate', async message => {
-  if (message.content === "!setup") {
+client.once("ready", () => {
+    console.log("Bot prêt 🔥");
+});
 
-    const button = new ButtonBuilder()
-      .setCustomId('declare_vente')
-      .setLabel('📦 Déclarer une vente')
-      .setStyle(ButtonStyle.Success);
+/* ===============================
+   COMMANDE SETUP
+================================ */
 
-    const row = new ActionRowBuilder().addComponents(button);
+client.on("messageCreate", async message => {
 
-    await message.channel.send({
-      content: "💊 **Déclaration officielle des ventes**",
-      components: [row]
-    });
+    if (message.author.bot) return;
 
-client.on('interactionCreate', async interaction => {
+    if (message.content === "!setup") {
 
-  // === BOUTON CLIQUÉ ===
-  if (interaction.isButton()) {
+        const button = new ButtonBuilder()
+            .setCustomId("declare_vente")
+            .setLabel("📦 Déclarer une vente")
+            .setStyle(ButtonStyle.Success);
 
-    if (interaction.customId === 'declare_vente') {
+        const row = new ActionRowBuilder().addComponents(button);
 
-      const modal = new ModalBuilder()
-        .setCustomId('vente_modal')
-        .setTitle('Déclaration de Vente');
-
-      const produit = new TextInputBuilder()
-        .setCustomId('produit')
-        .setLabel("Produit")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      const quantite = new TextInputBuilder()
-        .setCustomId('quantite')
-        .setLabel("Quantité")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      const prix = new TextInputBuilder()
-        .setCustomId('prix')
-        .setLabel("Prix unitaire")
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(produit),
-        new ActionRowBuilder().addComponents(quantite),
-        new ActionRowBuilder().addComponents(prix),
-      );
-
-      await interaction.showModal(modal);
+        await message.channel.send({
+            content: "💊 **Déclaration officielle des ventes**",
+            components: [row]
+        });
     }
-  }
+});
 
-  // === MODAL ENVOYÉ ===
-  if (interaction.isModalSubmit()) {
+/* ===============================
+   BOUTON CLIQUÉ
+================================ */
 
-    if (interaction.customId === 'vente_modal') {
+client.on("interactionCreate", async interaction => {
 
-      const produit = interaction.fields.getTextInputValue('produit');
-      const quantite = parseInt(interaction.fields.getTextInputValue('quantite'));
-      const prix = parseFloat(interaction.fields.getTextInputValue('prix'));
+    if (interaction.isButton()) {
 
-      const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-      await doc.useServiceAccountAuth(JSON.parse(process.env.GOOGLE_CREDS));
-      await doc.loadInfo();
+        if (interaction.customId === "declare_vente") {
 
-      const sheet = doc.sheetsByTitle['Ventes'];
+            const modal = new ModalBuilder()
+                .setCustomId("vente_modal")
+                .setTitle("Déclaration de Vente");
 
-      await sheet.addRow({
-        Date: new Date().toLocaleDateString(),
-        Vendeur: interaction.user.username,
-        Produit: produit,
-        Quantité: quantite,
-        'Prix Vente': prix,
-        'Total Vente': quantite * prix
-      });
+            const produit = new TextInputBuilder()
+                .setCustomId("produit")
+                .setLabel("Produit")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
 
-      await interaction.reply({
-        content: "✅ Vente envoyée au QG.",
-        ephemeral: true
-      });
+            const quantite = new TextInputBuilder()
+                .setCustomId("quantite")
+                .setLabel("Quantité")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const prix = new TextInputBuilder()
+                .setCustomId("prix")
+                .setLabel("Prix unitaire")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(produit),
+                new ActionRowBuilder().addComponents(quantite),
+                new ActionRowBuilder().addComponents(prix)
+            );
+
+            await interaction.showModal(modal);
+        }
     }
-  }
+
+    /* ===============================
+       MODAL SUBMIT
+    ================================= */
+
+    if (interaction.isModalSubmit()) {
+
+        if (interaction.customId === "vente_modal") {
+
+            try {
+
+                const produit = interaction.fields.getTextInputValue("produit");
+                const quantite = parseInt(interaction.fields.getTextInputValue("quantite"));
+                const prix = parseFloat(interaction.fields.getTextInputValue("prix"));
+
+                const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
+
+                await doc.useServiceAccountAuth(
+                    JSON.parse(process.env.GOOGLE_CREDS)
+                );
+
+                await doc.loadInfo();
+
+                const sheet = doc.sheetsByTitle["Ventes"];
+
+                await sheet.addRow({
+                    Date: new Date().toLocaleDateString(),
+                    Vendeur: interaction.user.username,
+                    Produit: produit,
+                    Quantité: quantite,
+                    "Prix Vente": prix,
+                    "Total Vente": quantite * prix
+                });
+
+                await interaction.reply({
+                    content: "✅ Vente envoyée au QG.",
+                    ephemeral: true
+                });
+
+            } catch (err) {
+                console.log(err);
+
+                await interaction.reply({
+                    content: "❌ Erreur lors de l'enregistrement.",
+                    ephemeral: true
+                });
+            }
+        }
+    }
 });
 
 client.login(process.env.BOT_TOKEN);
