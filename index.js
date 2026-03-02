@@ -20,6 +20,9 @@ client.once('ready', async () => {
   console.log('Bot prêt 🔥');
 });
 
+client.on('messageCreate', async message => {
+  if (message.content === "!setup") {
+
 client.on('interactionCreate', async interaction => {
 
   // === BOUTON CLIQUÉ ===
