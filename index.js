@@ -117,7 +117,7 @@ client.on("interactionCreate", async interaction => {
 
                 await sheet.addRow({
                     Date: new Date().toLocaleDateString(),
-                    Vendeur: interaction.user.username,
+                    Vendeur: interaction.member.displayName,
                     Produit: produit,
                     Quantité: quantite,
                     "Prix Vente": prix,
