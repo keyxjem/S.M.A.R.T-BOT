@@ -22,14 +22,13 @@ const client = new Client({
 });
 
 /* ===============================
-   CONFIGURATION
+   CONFIG
 ================================ */
 
-const PRIX_GANG = 300;              // Argent généré pour le gang par unité
-const COMMISSION_PAR_UNITE = 55;    // Commission vendeur par unité
+const COMMISSION_PAR_UNITE = 55;
 
 /* ===============================
-   BOT READY
+   READY
 ================================ */
 
 client.once("ready", () => {
@@ -37,7 +36,7 @@ client.once("ready", () => {
 });
 
 /* ===============================
-   COMMANDE SETUP
+   SETUP
 ================================ */
 
 client.on("messageCreate", async message => {
@@ -86,9 +85,16 @@ client.on("interactionCreate", async interaction => {
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
+            const prixVente = new TextInputBuilder()
+                .setCustomId("prix")
+                .setLabel("Prix de vente (par unité)")
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
             modal.addComponents(
                 new ActionRowBuilder().addComponents(produit),
-                new ActionRowBuilder().addComponents(quantite)
+                new ActionRowBuilder().addComponents(quantite),
+                new ActionRowBuilder().addComponents(prixVente)
             );
 
             await interaction.showModal(modal);
@@ -103,15 +109,16 @@ client.on("interactionCreate", async interaction => {
 
                 const produit = interaction.fields.getTextInputValue("produit");
                 const quantite = parseInt(interaction.fields.getTextInputValue("quantite"));
+                const prixUnitaire = parseInt(interaction.fields.getTextInputValue("prix"));
 
-                if (isNaN(quantite) || quantite <= 0) {
+                if (isNaN(quantite) || quantite <= 0 || isNaN(prixUnitaire) || prixUnitaire <= 0) {
                     return interaction.reply({
-                        content: "❌ Quantité invalide.",
+                        content: "❌ Quantité ou prix invalide.",
                         ephemeral: true
                     });
                 }
 
-                const totalGang = quantite * PRIX_GANG;
+                const totalVente = quantite * prixUnitaire;
                 const payeVendeur = quantite * COMMISSION_PAR_UNITE;
 
                 const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
@@ -129,13 +136,16 @@ client.on("interactionCreate", async interaction => {
                     Vendeur: interaction.member.nickname || interaction.user.username,
                     Produit: produit,
                     Quantité: quantite,
-                    "Prix Vente": PRIX_GANG,
-                    "Total Vente": totalGang,
+                    "Prix Vente": prixUnitaire,
+                    "Total Vente": totalVente,
                     "Paye": payeVendeur
                 });
 
                 await interaction.reply({
-                    content: `✅ Vente enregistrée.\n💰 Gang : ${totalGang}$\n💵 Ta commission : ${payeVendeur}$`,
+                    content:
+                        `✅ Vente enregistrée.\n\n` +
+                        `💰 Total vente : ${totalVente}$\n` +
+                        `💵 Ta commission : ${payeVendeur}$`,
                     ephemeral: true
                 });
 
