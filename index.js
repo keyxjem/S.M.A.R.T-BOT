@@ -17,7 +17,7 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 const COMMISSION_PAR_UNITE = 55;
 
 /* ===============================
-CLIENT DISCORD
+CLIENT
 ================================ */
 
 const client = new Client({
@@ -33,11 +33,11 @@ READY
 ================================ */
 
 client.once("ready", () => {
-    console.log("Bot prêt 🔥");
+    console.log("✅ Bot prêt");
 });
 
 /* ===============================
-!setup COMMAND
+SETUP COMMAND
 ================================ */
 
 client.on("messageCreate", async message => {
@@ -72,44 +72,42 @@ INTERACTIONS
 
 client.on("interactionCreate", async interaction => {
 
-    if (!interaction.isButton() && !interaction.isModalSubmit()) return;
-
-    /* BOUTON DECLARATION */
-
     if (interaction.isButton() && interaction.customId === "declare_vente") {
 
         const modal = new ModalBuilder()
             .setCustomId("vente_modal")
             .setTitle("Déclaration de Vente");
 
-        const produit = new TextInputBuilder()
-            .setCustomId("produit")
-            .setLabel("Produit (log uniquement)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const quantite = new TextInputBuilder()
-            .setCustomId("quantite")
-            .setLabel("Quantité vendue")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const total = new TextInputBuilder()
-            .setCustomId("total")
-            .setLabel("Montant TOTAL encaissé ($)")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
         modal.addComponents(
-            new ActionRowBuilder().addComponents(produit),
-            new ActionRowBuilder().addComponents(quantite),
-            new ActionRowBuilder().addComponents(total)
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("produit")
+                    .setLabel("Produit (log uniquement)")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("quantite")
+                    .setLabel("Quantité vendue")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("total")
+                    .setLabel("Montant TOTAL encaissé ($)")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            )
         );
 
         await interaction.showModal(modal);
     }
 
-    /* MODAL SUBMIT */
+    /* ===============================
+    MODAL SUBMIT
+    ================================= */
 
     if (interaction.isModalSubmit() && interaction.customId === "vente_modal") {
 
@@ -198,9 +196,9 @@ client.on("interactionCreate", async interaction => {
 
             const logChannel = interaction.guild.channels.cache.find(
                 channel =>
-                    channel.name === "declaration" &&
+                    channel.name === "💊・déclaration-logs" &&
                     channel.parent &&
-                    channel.parent.name === "LOGS"
+                    channel.parent.name === "📁・LOGS"
             );
 
             if (logChannel) {
