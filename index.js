@@ -32,7 +32,7 @@ const client = new Client({
 READY
 ================================ */
 
-client.once("ready", () => {
+client.once("clientReady", () => {
     console.log("✅ Bot RP prêt");
 });
 
