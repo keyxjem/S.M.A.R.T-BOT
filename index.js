@@ -17,7 +17,7 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 const COMMISSION_PAR_UNITE = 55;
 
 /* ===============================
-CLIENT
+CLIENT DISCORD
 ================================ */
 
 const client = new Client({
@@ -29,7 +29,7 @@ const client = new Client({
 });
 
 /* ===============================
-READY
+READY EVENT
 ================================ */
 
 client.once("clientReady", () => {
@@ -37,7 +37,7 @@ client.once("clientReady", () => {
 });
 
 /* ===============================
-DATABASE HELPERS
+GOOGLE DATABASE HELPERS
 ================================ */
 
 async function updateStockDatabase(joueur, objet, quantite, guild) {
@@ -82,7 +82,7 @@ async function updateStockDatabase(joueur, objet, quantite, guild) {
 }
 
 /* ===============================
-STOCK RESUME
+STOCK RESUME LOG
 ================================ */
 
 async function updateStockResume(guild) {
@@ -146,17 +146,13 @@ EYEGUARD WEBHOOK LISTENER
 
 client.on("messageCreate", async message => {
 
-    if (!message.webhookId) return;
-
-    const eyeChannel = message.guild.channels.cache.find(
-        channel => channel.name === "👁️・eyeguard"
-    );
-
-    if (!eyeChannel) return;
-
-    if (message.channel.id !== eyeChannel.id) return;
-
     try {
+
+        if (!message.webhookId) return;
+
+        if (message.channel.id !== process.env.EYEGUARD_CHANNEL_ID) return;
+
+        console.log("Webhook EyeGuard détecté");
 
         const lines = message.content.split("\n");
 
@@ -192,10 +188,11 @@ client.on("messageCreate", async message => {
     } catch (err) {
         console.log("EYEGUARD ERROR :", err);
     }
+
 });
 
 /* ===============================
-LOGIN
+LOGIN BOT
 ================================ */
 
 client.login(process.env.BOT_TOKEN);
