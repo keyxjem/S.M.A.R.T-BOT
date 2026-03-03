@@ -3,22 +3,10 @@ require("dotenv").config();
 const {
     Client,
     GatewayIntentBits,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    ModalBuilder,
-    TextInputBuilder,
-    TextInputStyle,
     EmbedBuilder
 } = require("discord.js");
 
 const { GoogleSpreadsheet } = require("google-spreadsheet");
-
-const COMMISSION_PAR_UNITE = 55;
-
-/* ===============================
-CLIENT DISCORD
-================================ */
 
 const client = new Client({
     intents: [
@@ -29,7 +17,7 @@ const client = new Client({
 });
 
 /* ===============================
-READY EVENT
+READY
 ================================ */
 
 client.once("clientReady", () => {
@@ -37,7 +25,7 @@ client.once("clientReady", () => {
 });
 
 /* ===============================
-GOOGLE DATABASE HELPERS
+DATABASE UPDATE
 ================================ */
 
 async function updateStockDatabase(joueur, objet, quantite, guild) {
@@ -82,7 +70,7 @@ async function updateStockDatabase(joueur, objet, quantite, guild) {
 }
 
 /* ===============================
-STOCK RESUME LOG
+RESUME STOCK LOG
 ================================ */
 
 async function updateStockResume(guild) {
@@ -90,13 +78,13 @@ async function updateStockResume(guild) {
     try {
 
         const logChannel = guild.channels.cache.find(
-            channel =>
-                channel.name === "📦・stocks-logs" &&
-                channel.parent &&
-                channel.parent.name === "📁・LOGS"
+            channel => channel.name.includes("stocks-logs")
         );
 
-        if (!logChannel) return;
+        if (!logChannel) {
+            console.log("Salon stocks-logs introuvable");
+            return;
+        }
 
         const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
@@ -122,6 +110,7 @@ async function updateStockResume(guild) {
             totalStock += stock;
 
             resumeText += `👤 ${row.Joueur} → ${stock}\n`;
+
         });
 
         const embed = new EmbedBuilder()
@@ -134,6 +123,8 @@ async function updateStockResume(guild) {
             .setColor(0x00ffcc);
 
         await logChannel.send({ embeds: [embed] });
+
+        console.log("Résumé stock envoyé");
 
     } catch (err) {
         console.log("RESUME ERROR :", err);
@@ -152,9 +143,13 @@ client.on("messageCreate", async message => {
 
         if (message.channel.id !== process.env.EYEGUARD_CHANNEL_ID) return;
 
-        console.log("Webhook EyeGuard détecté");
+        console.log("✅ EyeGuard webhook reçu");
 
-        const lines = message.content.split("\n");
+        const content = message.content;
+
+        if (!content) return;
+
+        const lines = content.split("\n");
 
         let joueur = "";
         let objet = "";
@@ -175,6 +170,8 @@ client.on("messageCreate", async message => {
             }
 
         });
+
+        console.log("Parsed :", joueur, objet, quantite);
 
         if (!joueur || !quantite) return;
 
