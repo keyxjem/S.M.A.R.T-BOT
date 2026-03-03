@@ -25,10 +25,16 @@ async function updateStockLogs(guild) {
     try {
 
         const logChannel = guild.channels.cache.find(
-            c => c.name.includes("stocks-logs")
+            c =>
+                c.name === "📦・stocks-logs" &&
+                c.parent &&
+                c.parent.name === "📁・LOGS"
         );
 
-        if (!logChannel) return;
+        if (!logChannel) {
+            console.log("Salon stocks-logs introuvable");
+            return;
+        }
 
         let totalStockGlobal = 0;
         let resumeText = "";
@@ -54,8 +60,7 @@ async function updateStockLogs(guild) {
         const messages = await logChannel.messages.fetch({ limit: 1 });
 
         if (messages.size > 0) {
-            const msg = messages.first();
-            await msg.edit({ embeds: [embed] });
+            await messages.first().edit({ embeds: [embed] });
         } else {
             await logChannel.send({ embeds: [embed] });
         }
@@ -109,7 +114,7 @@ client.on("messageCreate", async message => {
 });
 
 /* ===============================
-BOT READY
+READY EVENT
 ================================ */
 
 client.once("clientReady", () => {
