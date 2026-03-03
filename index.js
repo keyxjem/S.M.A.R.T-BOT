@@ -1,12 +1,6 @@
 require("dotenv").config();
 
-const {
-    Client,
-    GatewayIntentBits,
-    EmbedBuilder
-} = require("discord.js");
-
-const { GoogleSpreadsheet } = require("google-spreadsheet");
+const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 
 const client = new Client({
     intents: [
@@ -17,114 +11,56 @@ const client = new Client({
 });
 
 /* ===============================
-READY
+MEMORY STOCK SYSTEM
 ================================ */
 
-client.once("clientReady", () => {
-    console.log("✅ Bot RP prêt");
-});
+let stockMemory = {};
 
 /* ===============================
-DATABASE UPDATE
+UPDATE STOCK LOG MESSAGE
 ================================ */
 
-async function updateStockDatabase(joueur, objet, quantite, guild) {
-
-    try {
-
-        const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-
-        await doc.useServiceAccountAuth(
-            JSON.parse(process.env.GOOGLE_CREDS)
-        );
-
-        await doc.loadInfo();
-
-        const sheet = doc.sheetsByTitle["Stocks"];
-
-        if (!sheet) return;
-
-        const rows = await sheet.getRows();
-
-        let row = rows.find(r => r.Joueur === joueur);
-
-        if (row) {
-
-            row.Stock = Number(row.Stock || 0) + quantite;
-            await row.save();
-
-        } else {
-
-            await sheet.addRow({
-                Joueur: joueur,
-                Objet: objet,
-                Stock: quantite
-            });
-        }
-
-        await updateStockResume(guild);
-
-    } catch (err) {
-        console.log("DATABASE ERROR :", err);
-    }
-}
-
-/* ===============================
-RESUME STOCK LOG
-================================ */
-
-async function updateStockResume(guild) {
+async function updateStockLogs(guild) {
 
     try {
 
         const logChannel = guild.channels.cache.find(
-            channel => channel.name.includes("stocks-logs")
+            c => c.name.includes("stocks-logs")
         );
 
-        if (!logChannel) {
-            console.log("Salon stocks-logs introuvable");
-            return;
-        }
+        if (!logChannel) return;
 
-        const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-
-        await doc.useServiceAccountAuth(
-            JSON.parse(process.env.GOOGLE_CREDS)
-        );
-
-        await doc.loadInfo();
-
-        const sheet = doc.sheetsByTitle["Stocks"];
-
-        if (!sheet) return;
-
-        const rows = await sheet.getRows();
-
-        let totalStock = 0;
+        let totalStockGlobal = 0;
         let resumeText = "";
 
-        rows.forEach(row => {
+        for (const joueur in stockMemory) {
 
-            const stock = Number(row.Stock || 0);
+            const stock = stockMemory[joueur];
 
-            totalStock += stock;
+            totalStockGlobal += stock;
 
-            resumeText += `👤 ${row.Joueur} → ${stock}\n`;
-
-        });
+            resumeText += `👤 ${joueur} → ${stock}\n`;
+        }
 
         const embed = new EmbedBuilder()
             .setTitle("📦 Résumé Stocks Habitations")
             .setDescription(resumeText || "Aucune donnée")
             .addFields({
                 name: "📊 Total stock pris",
-                value: totalStock.toString()
+                value: totalStockGlobal.toString()
             })
             .setColor(0x00ffcc);
 
-        await logChannel.send({ embeds: [embed] });
+        const messages = await logChannel.messages.fetch({ limit: 1 });
 
-        console.log("Résumé stock envoyé");
+        if (messages.size > 0) {
+            const msg = messages.first();
+            await msg.edit({ embeds: [embed] });
+        } else {
+            await logChannel.send({ embeds: [embed] });
+        }
+
+        console.log("✅ Stocks logs mis à jour");
 
     } catch (err) {
         console.log("RESUME ERROR :", err);
@@ -147,40 +83,24 @@ client.on("messageCreate", async message => {
 
         const content = message.content;
 
-        if (!content) return;
+        if (!content.includes("a retiré") && !content.includes("a déposé")) return;
 
-        const lines = content.split("\n");
+        const regex = /^(.+?) (?:a retiré|a déposé) (\d+)x (.+)$/m;
 
-        let joueur = "";
-        let objet = "";
-        let quantite = 0;
+        const match = content.split("\n")[1]?.match(regex);
 
-        lines.forEach(line => {
+        if (!match) return;
 
-            if (line.includes("Joueur")) {
-                joueur = line.split(":")[1].trim();
-            }
+        const joueur = match[1].trim();
+        const quantite = Number(match[2]);
 
-            if (line.includes("Objet")) {
-                objet = line.split(":")[1].trim();
-            }
+        console.log("Parsed webhook :", joueur, quantite);
 
-            if (line.includes("Quantité")) {
-                quantite = Number(line.split(":")[1].trim());
-            }
+        if (!stockMemory[joueur]) stockMemory[joueur] = 0;
 
-        });
+        stockMemory[joueur] += quantite;
 
-        console.log("Parsed :", joueur, objet, quantite);
-
-        if (!joueur || !quantite) return;
-
-        await updateStockDatabase(
-            joueur,
-            objet,
-            quantite,
-            message.guild
-        );
+        await updateStockLogs(message.guild);
 
     } catch (err) {
         console.log("EYEGUARD ERROR :", err);
@@ -189,7 +109,15 @@ client.on("messageCreate", async message => {
 });
 
 /* ===============================
-LOGIN BOT
+BOT READY
+================================ */
+
+client.once("clientReady", () => {
+    console.log("✅ Bot RP prêt");
+});
+
+/* ===============================
+LOGIN
 ================================ */
 
 client.login(process.env.BOT_TOKEN);
