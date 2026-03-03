@@ -17,7 +17,7 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 const COMMISSION_PAR_UNITE = 55;
 
 /* ===============================
-CLIENT
+CLIENT DISCORD
 ================================ */
 
 const client = new Client({
@@ -33,8 +33,61 @@ READY
 ================================ */
 
 client.once("ready", () => {
-    console.log("✅ Bot prêt");
+    console.log("✅ Bot prêt RP");
 });
+
+/* ===============================
+UPDATE STOCK RESUME
+================================ */
+
+async function updateStockResume(guild) {
+
+    const logChannel = guild.channels.cache.find(
+        channel =>
+            channel.name === "📦・stocks-logs" &&
+            channel.parent &&
+            channel.parent.name === "📁・LOGS"
+    );
+
+    if (!logChannel) return;
+
+    const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
+
+    await doc.useServiceAccountAuth(
+        JSON.parse(process.env.GOOGLE_CREDS)
+    );
+
+    await doc.loadInfo();
+
+    const sheet = doc.sheetsByTitle["Stocks"];
+
+    if (!sheet) return;
+
+    const rows = await sheet.getRows();
+
+    let totalStock = 0;
+    let resumeText = "";
+
+    rows.forEach(row => {
+
+        const stock = Number(row.Stock || 0);
+
+        totalStock += stock;
+
+        resumeText += `👤 ${row.Joueur} → ${stock}\n`;
+    });
+
+    const embed = new EmbedBuilder()
+        .setTitle("📦 Résumé Stocks Habitations")
+        .setDescription(resumeText || "Aucune donnée")
+        .addFields({
+            name: "📊 Total stock pris",
+            value: totalStock.toString()
+        })
+        .setColor(0x00ffcc);
+
+    await logChannel.send({ embeds: [embed] });
+}
 
 /* ===============================
 SETUP COMMAND
@@ -54,9 +107,8 @@ client.on("messageCreate", async message => {
         const row = new ActionRowBuilder().addComponents(button);
 
         const embed = new EmbedBuilder()
-            .setColor(0x0099ff)
             .setTitle("💊 Déclaration des ventes")
-            .setDescription("Clique sur le bouton ci-dessous pour déclarer une vente.")
+            .setDescription("Clique pour déclarer une vente")
             .setImage("https://i.imgur.com/OYLdO9J.gif");
 
         await message.channel.send({
@@ -64,10 +116,83 @@ client.on("messageCreate", async message => {
             components: [row]
         });
     }
+
+    /* ===============================
+    EYEGUARD WEBHOOK LISTENER
+    ================================= */
+
+    if (message.channel.name === "👁️・eyeguard" && message.webhookId) {
+
+        try {
+
+            const content = message.content;
+
+            const lines = content.split("\n");
+
+            let joueur = "";
+            let objet = "";
+            let quantite = 0;
+
+            lines.forEach(line => {
+
+                if (line.includes("Joueur")) {
+                    joueur = line.split(":")[1].trim();
+                }
+
+                if (line.includes("Objet")) {
+                    objet = line.split(":")[1].trim();
+                }
+
+                if (line.includes("Quantité")) {
+                    quantite = Number(line.split(":")[1].trim());
+                }
+
+            });
+
+            if (!joueur || !quantite) return;
+
+            const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
+
+            await doc.useServiceAccountAuth(
+                JSON.parse(process.env.GOOGLE_CREDS)
+            );
+
+            await doc.loadInfo();
+
+            const sheet = doc.sheetsByTitle["Stocks"];
+
+            if (!sheet) return;
+
+            const rows = await sheet.getRows();
+
+            let joueurRow = rows.find(row => row.Joueur === joueur);
+
+            if (joueurRow) {
+
+                joueurRow.Stock =
+                    Number(joueurRow.Stock || 0) + quantite;
+
+                await joueurRow.save();
+
+            } else {
+
+                await sheet.addRow({
+                    Joueur: joueur,
+                    Objet: objet,
+                    Stock: quantite
+                });
+            }
+
+            await updateStockResume(message.guild);
+
+        } catch (err) {
+            console.log("ERREUR EYEGUARD :", err);
+        }
+    }
 });
 
 /* ===============================
-INTERACTIONS
+INTERACTIONS DECLARATION
 ================================ */
 
 client.on("interactionCreate", async interaction => {
@@ -103,137 +228,6 @@ client.on("interactionCreate", async interaction => {
         );
 
         await interaction.showModal(modal);
-    }
-
-    /* ===============================
-    MODAL SUBMIT
-    ================================= */
-
-    if (interaction.isModalSubmit() && interaction.customId === "vente_modal") {
-
-        try {
-
-            await interaction.deferReply({ ephemeral: true });
-
-            const vendeur =
-                interaction.member.nickname ||
-                interaction.user.username;
-
-            const produit =
-                interaction.fields.getTextInputValue("produit");
-
-            const quantite = parseInt(
-                interaction.fields.getTextInputValue("quantite")
-            );
-
-            const totalAjout = parseInt(
-                interaction.fields.getTextInputValue("total")
-            );
-
-            if (!quantite || !totalAjout) {
-                return interaction.editReply({
-                    content: "❌ Données invalides."
-                });
-            }
-
-            const payeAjout = quantite * COMMISSION_PAR_UNITE;
-
-            /* GOOGLE SHEETS */
-
-            const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-
-            await doc.useServiceAccountAuth(
-                JSON.parse(process.env.GOOGLE_CREDS)
-            );
-
-            await doc.loadInfo();
-
-            const sheet = doc.sheetsByTitle["Ventes"];
-
-            await sheet.loadHeaderRow();
-
-            const rows = await sheet.getRows();
-
-            const vendeurRow = rows.find(
-                row => row.Vendeur === vendeur
-            );
-
-            const ancienTotal = vendeurRow
-                ? Number((vendeurRow["Total Vente"] || "0").replace(" $", ""))
-                : 0;
-
-            const ancienneQuantite = vendeurRow
-                ? Number(vendeurRow["Quantité"] || 0)
-                : 0;
-
-            const anciennePaye = vendeurRow
-                ? Number((vendeurRow["Paye"] || "0").replace(" $", ""))
-                : 0;
-
-            const nouvelleQuantite = ancienneQuantite + quantite;
-            const nouveauTotal = ancienTotal + totalAjout;
-            const nouvellePaye = anciennePaye + payeAjout;
-
-            if (vendeurRow) {
-
-                vendeurRow["Quantité"] = nouvelleQuantite;
-                vendeurRow["Total Vente"] = nouveauTotal + " $";
-                vendeurRow["Paye"] = nouvellePaye + " $";
-
-                await vendeurRow.save();
-
-            } else {
-
-                await sheet.addRow({
-                    Vendeur: vendeur,
-                    Quantité: quantite,
-                    "Total Vente": totalAjout + " $",
-                    Paye: payeAjout + " $"
-                });
-            }
-
-            /* LOGS DISCORD */
-
-            const logChannel = interaction.guild.channels.cache.find(
-                channel =>
-                    channel.name === "💊・déclaration-logs" &&
-                    channel.parent &&
-                    channel.parent.name === "📁・LOGS"
-            );
-
-            if (logChannel) {
-
-                const logEmbed = new EmbedBuilder()
-                    .setColor(0xff0000)
-                    .setTitle("📊 Nouvelle déclaration")
-                    .setDescription(
-                        `👤 Vendeur : ${vendeur}\n` +
-                        `🧪 Produit : ${produit}\n` +
-                        `📦 Quantité : ${quantite}\n` +
-                        `💰 Total gang : ${totalAjout} $\n` +
-                        `💵 Commission : ${payeAjout} $`
-                    )
-                    .setFooter({
-                        text: new Date().toLocaleString()
-                    });
-
-                await logChannel.send({ embeds: [logEmbed] });
-            }
-
-            await interaction.editReply({
-                content: "✅ Vente enregistrée."
-            });
-
-        } catch (err) {
-
-            console.log("ERREUR BOT :", err);
-
-            try {
-                await interaction.editReply({
-                    content: "❌ Une erreur est survenue."
-                });
-            } catch {}
-        }
     }
 });
 
