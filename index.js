@@ -8,14 +8,11 @@ const {
     ButtonStyle,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle
+    TextInputStyle,
+    EmbedBuilder
 } = require("discord.js");
 
 const { GoogleSpreadsheet } = require("google-spreadsheet");
-
-/* ===============================
-CONFIGURATION
-================================ */
 
 const COMMISSION_PAR_UNITE = 55;
 
@@ -26,10 +23,6 @@ const client = new Client({
         GatewayIntentBits.MessageContent
     ]
 });
-
-/* ===============================
-READY
-================================ */
 
 client.once("ready", () => {
     console.log("Bot prêt 🔥");
@@ -52,17 +45,12 @@ client.on("messageCreate", async message => {
 
         const row = new ActionRowBuilder().addComponents(button);
 
-        const embed = {
-            color: 0x0099ff,
-            title: "💊 Déclaration des ventes",
-            description: "Clique sur le bouton ci-dessous pour déclarer une vente 💼",
-            image: {
-                url: "https://i.imgur.com/OYLdO9J.gif"
-            },
-            footer: {
-                text: "Système de déclaration automatique"
-            }
-        };
+        const embed = new EmbedBuilder()
+            .setColor(0x0099ff)
+            .setTitle("💊 Déclaration des ventes")
+            .setDescription("Clique sur le bouton ci-dessous pour déclarer une vente 💼")
+            .setImage("https://i.imgur.com/OYLdO9J.gif")
+            .setFooter({ text: "Système automatique gang" });
 
         await message.channel.send({
             embeds: [embed],
@@ -77,40 +65,37 @@ INTERACTIONS
 
 client.on("interactionCreate", async interaction => {
 
-    if (interaction.isButton()) {
+    if (interaction.isButton() && interaction.customId === "declare_vente") {
 
-        if (interaction.customId === "declare_vente") {
+        const modal = new ModalBuilder()
+            .setCustomId("vente_modal")
+            .setTitle("Déclaration de Vente");
 
-            const modal = new ModalBuilder()
-                .setCustomId("vente_modal")
-                .setTitle("Déclaration de Vente");
+        const produit = new TextInputBuilder()
+            .setCustomId("produit")
+            .setLabel("Produit (log uniquement)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-            const produit = new TextInputBuilder()
-                .setCustomId("produit")
-                .setLabel("Produit (log Discord uniquement)")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
+        const quantite = new TextInputBuilder()
+            .setCustomId("quantite")
+            .setLabel("Quantité vendue")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-            const quantite = new TextInputBuilder()
-                .setCustomId("quantite")
-                .setLabel("Quantité vendue")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
+        const total = new TextInputBuilder()
+            .setCustomId("total")
+            .setLabel("Montant TOTAL encaissé ($)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
 
-            const total = new TextInputBuilder()
-                .setCustomId("total")
-                .setLabel("Montant TOTAL encaissé ($)")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(produit),
+            new ActionRowBuilder().addComponents(quantite),
+            new ActionRowBuilder().addComponents(total)
+        );
 
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(produit),
-                new ActionRowBuilder().addComponents(quantite),
-                new ActionRowBuilder().addComponents(total)
-            );
-
-            await interaction.showModal(modal);
-        }
+        await interaction.showModal(modal);
     }
 
     if (interaction.isModalSubmit() && interaction.customId === "vente_modal") {
@@ -192,6 +177,29 @@ client.on("interactionCreate", async interaction => {
                     "Total Vente": totalAjout + " $",
                     Paye: payeAjout + " $"
                 });
+            }
+
+            /* ===== LOG DISCORD ===== */
+
+            const logChannel = await interaction.guild.channels.fetch(
+                process.env.LOG_CHANNEL_ID
+            ).catch(() => null);
+
+            if (logChannel) {
+
+                const logEmbed = new EmbedBuilder()
+                    .setColor(0xff0000)
+                    .setTitle("📊 Nouvelle déclaration de vente")
+                    .setDescription(
+                        `👤 **Vendeur :** ${vendeur}\n` +
+                        `🧪 **Produit :** ${produit}\n` +
+                        `📦 **Quantité :** ${quantite}\n` +
+                        `💰 **Total gang :** ${totalAjout} $\n` +
+                        `💵 **Commission vendeur :** ${payeAjout} $`
+                    )
+                    .setFooter({ text: new Date().toLocaleString() });
+
+                await logChannel.send({ embeds: [logEmbed] });
             }
 
             await interaction.editReply({
