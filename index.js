@@ -18,7 +18,7 @@ const COMMISSION_PAR_UNITE = 55;
 
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds,
+        GatewayIntentBits.Guilds),
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
@@ -181,9 +181,12 @@ client.on("interactionCreate", async interaction => {
 
             /* ===== LOG DISCORD ===== */
 
-            const logChannel = await interaction.guild.channels.fetch(
-                process.env.LOG_CHANNEL_ID
-            ).catch(() => null);
+            const logChannel = interaction.guild.channels.cache.find(
+                channel =>
+                    channel.name === "declaration" &&
+                    channel.parent &&
+                    channel.parent.name === "LOGS"
+            );
 
             if (logChannel) {
 
