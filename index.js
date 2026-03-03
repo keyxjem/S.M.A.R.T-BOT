@@ -16,20 +16,28 @@ const { GoogleSpreadsheet } = require("google-spreadsheet");
 
 const COMMISSION_PAR_UNITE = 55;
 
+/* ===============================
+CLIENT DISCORD
+================================ */
+
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds),
+        GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent
     ]
 });
+
+/* ===============================
+READY
+================================ */
 
 client.once("ready", () => {
     console.log("Bot prêt 🔥");
 });
 
 /* ===============================
-SETUP COMMAND
+!setup COMMAND
 ================================ */
 
 client.on("messageCreate", async message => {
@@ -48,9 +56,8 @@ client.on("messageCreate", async message => {
         const embed = new EmbedBuilder()
             .setColor(0x0099ff)
             .setTitle("💊 Déclaration des ventes")
-            .setDescription("Clique sur le bouton ci-dessous pour déclarer une vente 💼")
-            .setImage("https://i.imgur.com/OYLdO9J.gif")
-            .setFooter({ text: "Système automatique gang" });
+            .setDescription("Clique sur le bouton ci-dessous pour déclarer une vente.")
+            .setImage("https://i.imgur.com/OYLdO9J.gif");
 
         await message.channel.send({
             embeds: [embed],
@@ -64,6 +71,10 @@ INTERACTIONS
 ================================ */
 
 client.on("interactionCreate", async interaction => {
+
+    if (!interaction.isButton() && !interaction.isModalSubmit()) return;
+
+    /* BOUTON DECLARATION */
 
     if (interaction.isButton() && interaction.customId === "declare_vente") {
 
@@ -98,6 +109,8 @@ client.on("interactionCreate", async interaction => {
         await interaction.showModal(modal);
     }
 
+    /* MODAL SUBMIT */
+
     if (interaction.isModalSubmit() && interaction.customId === "vente_modal") {
 
         try {
@@ -126,6 +139,8 @@ client.on("interactionCreate", async interaction => {
             }
 
             const payeAjout = quantite * COMMISSION_PAR_UNITE;
+
+            /* GOOGLE SHEETS */
 
             const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
@@ -179,7 +194,7 @@ client.on("interactionCreate", async interaction => {
                 });
             }
 
-            /* ===== LOG DISCORD ===== */
+            /* LOGS DISCORD */
 
             const logChannel = interaction.guild.channels.cache.find(
                 channel =>
@@ -192,21 +207,23 @@ client.on("interactionCreate", async interaction => {
 
                 const logEmbed = new EmbedBuilder()
                     .setColor(0xff0000)
-                    .setTitle("📊 Nouvelle déclaration de vente")
+                    .setTitle("📊 Nouvelle déclaration")
                     .setDescription(
-                        `👤 **Vendeur :** ${vendeur}\n` +
-                        `🧪 **Produit :** ${produit}\n` +
-                        `📦 **Quantité :** ${quantite}\n` +
-                        `💰 **Total gang :** ${totalAjout} $\n` +
-                        `💵 **Commission vendeur :** ${payeAjout} $`
+                        `👤 Vendeur : ${vendeur}\n` +
+                        `🧪 Produit : ${produit}\n` +
+                        `📦 Quantité : ${quantite}\n` +
+                        `💰 Total gang : ${totalAjout} $\n` +
+                        `💵 Commission : ${payeAjout} $`
                     )
-                    .setFooter({ text: new Date().toLocaleString() });
+                    .setFooter({
+                        text: new Date().toLocaleString()
+                    });
 
                 await logChannel.send({ embeds: [logEmbed] });
             }
 
             await interaction.editReply({
-                content: "✅ Vente enregistrée avec succès."
+                content: "✅ Vente enregistrée."
             });
 
         } catch (err) {
@@ -215,11 +232,15 @@ client.on("interactionCreate", async interaction => {
 
             try {
                 await interaction.editReply({
-                    content: "❌ Une erreur s'est produite."
+                    content: "❌ Une erreur est survenue."
                 });
             } catch {}
         }
     }
 });
+
+/* ===============================
+LOGIN
+================================ */
 
 client.login(process.env.BOT_TOKEN);
