@@ -8,7 +8,8 @@ const {
     ButtonStyle,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle
+    TextInputStyle,
+    StringSelectMenuBuilder
 } = require("discord.js");
 
 const { GoogleSpreadsheet } = require("google-spreadsheet");
@@ -77,54 +78,81 @@ INTERACTIONS
 
 client.on("interactionCreate", async interaction => {
 
-    if (interaction.isButton()) {
+    /* ===== BOUTON ===== */
 
-        if (interaction.customId === "declare_vente") {
+    if (interaction.isButton() && interaction.customId === "declare_vente") {
 
-            const modal = new ModalBuilder()
-                .setCustomId("vente_modal")
-                .setTitle("Déclaration de Vente");
-
-            const produit = new TextInputBuilder()
-                .setCustomId("produit")
-                .setLabel("Produit (log Discord uniquement)")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
-
-            const quantite = new TextInputBuilder()
-                .setCustomId("quantite")
-                .setLabel("Quantité vendue")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
-
-            const total = new TextInputBuilder()
-                .setCustomId("total")
-                .setLabel("Montant TOTAL encaissé ($)")
-                .setStyle(TextInputStyle.Short)
-                .setRequired(true);
-
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(produit),
-                new ActionRowBuilder().addComponents(quantite),
-                new ActionRowBuilder().addComponents(total)
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId("select_produit")
+            .setPlaceholder("Choisis le produit vendu")
+            .addOptions(
+                { label: "🍄 Blacktriple", value: "Blacktriple" },
+                { label: "❄️ Cocaïne", value: "Cocaïne" },
+                { label: "💎 Crack", value: "Crack" },
+                { label: "💊 Ecstasy", value: "Ecstasy" },
+                { label: "💉 Héroïne", value: "Héroïne" },
+                { label: "⚗️ Meth", value: "Meth" },
+                { label: "🔵🧪 MethBleu", value: "MethBleu" },
+                { label: "🟣 Purple", value: "Purple" },
+                { label: "🌿 Salvia", value: "Salvia" },
+                { label: "🖤 SporeX", value: "SporeX" },
+                { label: "🍁 Weed", value: "Weed" }
             );
 
-            await interaction.showModal(modal);
-        }
+        const row = new ActionRowBuilder().addComponents(menu);
+
+        return interaction.reply({
+            content: "📦 Sélectionne le produit :",
+            components: [row],
+            flags: 64
+        });
     }
 
-    if (interaction.isModalSubmit() && interaction.customId === "vente_modal") {
+    /* ===== MENU PRODUIT ===== */
+
+    if (interaction.isStringSelectMenu() &&
+        interaction.customId === "select_produit") {
+
+        const produitChoisi = interaction.values[0];
+
+        const modal = new ModalBuilder()
+            .setCustomId("vente_modal_" + produitChoisi)
+            .setTitle("Déclaration - " + produitChoisi);
+
+        const quantite = new TextInputBuilder()
+            .setCustomId("quantite")
+            .setLabel("Quantité vendue")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        const total = new TextInputBuilder()
+            .setCustomId("total")
+            .setLabel("Montant TOTAL encaissé ($)")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(quantite),
+            new ActionRowBuilder().addComponents(total)
+        );
+
+        return interaction.showModal(modal);
+    }
+
+    /* ===== MODAL ===== */
+
+    if (interaction.isModalSubmit() &&
+        interaction.customId.startsWith("vente_modal_")) {
 
         try {
 
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
+
+            const produit = interaction.customId.replace("vente_modal_", "");
 
             const vendeur =
                 interaction.member.nickname ||
                 interaction.user.username;
-
-            const produit =
-                interaction.fields.getTextInputValue("produit");
 
             const quantite = parseInt(
                 interaction.fields.getTextInputValue("quantite")
@@ -134,7 +162,7 @@ client.on("interactionCreate", async interaction => {
                 interaction.fields.getTextInputValue("total")
             );
 
-            if (!quantite || !totalAjout) {
+            if (isNaN(quantite) || isNaN(totalAjout)) {
                 return interaction.editReply({
                     content: "❌ Données invalides."
                 });
@@ -152,35 +180,22 @@ client.on("interactionCreate", async interaction => {
 
             const sheet = doc.sheetsByTitle["Ventes"];
 
-            await sheet.loadHeaderRow();
-
             const rows = await sheet.getRows();
 
             const vendeurRow = rows.find(
                 row => row.Vendeur === vendeur
             );
 
-            const ancienTotal = vendeurRow
-                ? Number((vendeurRow["Total Vente"] || "0").replace(" $", ""))
-                : 0;
-
-            const ancienneQuantite = vendeurRow
-                ? Number(vendeurRow["Quantité"] || 0)
-                : 0;
-
-            const anciennePaye = vendeurRow
-                ? Number((vendeurRow["Paye"] || "0").replace(" $", ""))
-                : 0;
-
-            const nouvelleQuantite = ancienneQuantite + quantite;
-            const nouveauTotal = ancienTotal + totalAjout;
-            const nouvellePaye = anciennePaye + payeAjout;
-
             if (vendeurRow) {
 
-                vendeurRow["Quantité"] = nouvelleQuantite;
-                vendeurRow["Total Vente"] = nouveauTotal + " $";
-                vendeurRow["Paye"] = nouvellePaye + " $";
+                vendeurRow["Quantité"] =
+                    Number(vendeurRow["Quantité"] || 0) + quantite;
+
+                vendeurRow["Total Vente"] =
+                    Number((vendeurRow["Total Vente"] || "0").replace(" $", "")) + totalAjout + " $";
+
+                vendeurRow["Paye"] =
+                    Number((vendeurRow["Paye"] || "0").replace(" $", "")) + payeAjout + " $";
 
                 await vendeurRow.save();
 
@@ -210,5 +225,9 @@ client.on("interactionCreate", async interaction => {
         }
     }
 });
+
+/* ===============================
+LOGIN
+================================ */
 
 client.login(process.env.BOT_TOKEN);
