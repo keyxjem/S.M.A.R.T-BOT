@@ -26,10 +26,8 @@ const client = new Client({
 
 async function getSheet() {
     const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-
     await doc.useServiceAccountAuth(JSON.parse(process.env.GOOGLE_CREDS));
     await doc.loadInfo();
-
     return doc.sheetsByIndex[0];
 }
 
@@ -75,7 +73,7 @@ client.once("clientReady", () => {
     console.log("✅ Bot RP prêt");
 });
 
-/* ================= SETUP BUTTON ================= */
+/* ================= SETUP BOUTON ================= */
 
 client.on("messageCreate", async message => {
 
@@ -105,15 +103,12 @@ client.on("messageCreate", async message => {
     if (message.webhookId &&
         message.channel.id === process.env.EYEGUARD_CHANNEL_ID) {
 
-        console.log("Webhook EyeGuard reçu");
-
         const content = message.content;
 
         if (!content.includes("a retiré") &&
             !content.includes("a déposé")) return;
 
         const regex = /^(.+?) (?:a retiré|a déposé) (\d+)x (.+)$/m;
-
         const match = content.split("\n")[1]?.match(regex);
 
         if (!match) return;
@@ -122,7 +117,6 @@ client.on("messageCreate", async message => {
         const quantite = Number(match[2]);
 
         if (!stockMemory[joueur]) stockMemory[joueur] = 0;
-
         stockMemory[joueur] += quantite;
 
         await updateStockLogs(message.guild);
@@ -176,7 +170,7 @@ client.on("interactionCreate", async interaction => {
         if (interaction.isModalSubmit() &&
             interaction.customId === "sale_modal") {
 
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
 
             const produit = interaction.fields.getTextInputValue("produit");
             const quantite = Number(interaction.fields.getTextInputValue("quantite"));
